@@ -1,33 +1,35 @@
 # ZekAI
 
-Beş aletli bir yapay zeka atölyesi: sohbet, görsel üretimi, logo tasarımı,
-fotoğraf düzenleme, sesli sohbet.
+Tek pencereli bir yapay zeka atölyesi: yaz ya da konuş, ZekAI ne istediğini
+anlayıp sohbet eder, görsel/logo üretir ya da yüklediğin fotoğrafı düzenler.
 
 ## Kullanılan servisler
 
-| Alet | Servis | Ortam değişkeni |
+| İş | Servis | Ücret |
 |---|---|---|
-| Konuş | Google Gemini | `GOOGLE_API_KEY` |
-| Çiz / Marka | Replicate (Flux) | `REPLICATE_API_TOKEN` |
-| Rötuş | Replicate (Flux Kontext) | `REPLICATE_API_TOKEN` |
-| Dinle | ElevenLabs (ses) + tarayıcı (mikrofon) | `ELEVENLABS_API_KEY` |
+| Anlama / yönlendirme / sohbet | Google Gemini | Ücretsiz kota (`GOOGLE_API_KEY` gerekli) |
+| Görsel, logo, fotoğraf düzenleme | Pollinations.ai | Tamamen ücretsiz, key gerekmiyor |
+| Sesli okuma (TTS) | Pollinations.ai | Tamamen ücretsiz, key gerekmiyor |
+| Mikrofon (konuşmayı yazıya çevirme) | Tarayıcının kendi Web Speech API'si | Ücretsiz |
+
+Video ve müzik üretimi şu an yok — ücretsiz/kartsız güvenilir bir servis
+bulunmadı. ZekAI bunu istendiğinde kullanıcıya dürüstçe söyler.
 
 ## Mobilden yayına alma (GitHub + Vercel)
 
-1. Bu klasörü GitHub'da yeni bir repo olarak yükle.
-2. vercel.com → "Add New Project" → bu repoyu seç → "Deploy".
-3. Deploy bitmeden **Environment Variables** kısmına `.env.example`
-   dosyasındaki üç anahtarı gerçek değerleriyle gir.
-4. Deploy tamamlanınca Vercel sana bir `*.vercel.app` linki verir — site bu.
+1. Bu klasörü GitHub'da bir repoya yükle (veya Claude ile push ettir).
+2. vercel.com → "Add New Project" → repoyu seç → "Deploy".
+3. Deploy etmeden **Environment Variables** kısmına `.env.example`'daki
+   `GOOGLE_API_KEY`'i gerçek değeriyle gir.
+4. Deploy tamamlanınca `*.vercel.app` linki gelir — site bu.
 
-Ortam değişkenlerini sonradan değiştirirsen: Project → Settings →
-Environment Variables → değeri güncelle → Deployments sekmesinden
-son deploy'u "Redeploy" et.
+Ortam değişkenini sonradan değiştirirsen: Settings → Environment Variables →
+güncelle → Deployments → son deploy → **Redeploy**. Değişken eklemek/değiştirmek
+otomatik uygulanmaz, redeploy şart.
 
 ## Notlar
 
-- Video ve müzik üretimi bu sürümde yok (ücretsiz/güvenilir bir API key
-  henüz eklenmedi).
-- 7-8 kişilik eşzamanlı kullanım için servislerin ücretsiz kotaları
-  yeterli olabilir, ama kota bitince ilgili alet hata mesajı gösterir —
-  o servisin panelinden kota/plan yükseltmen gerekir.
+- Pollinations.ai anonim kullanımda hafif hız sınırlaması uygular (~15
+  saniyede bir istek). 7-8 kişilik kullanım için yeterli olmalı; darboğaz
+  yaşanırsa ücretsiz bir Pollinations hesabı açıp key eklemek limiti artırır.
+- Hiçbir servise kredi kartı veya ödeme gerekmiyor.

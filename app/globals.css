@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #0a0a12;
+  --surface: #14141f;
+  --surface-raised: #1b1b29;
+  --border: #2a2a3b;
+  --text: #ede9f7;
+  --text-dim: #8f8aa3;
+  --violet: #8266ff;
+  --coral: #ff7a5c;
+  --lime: #baff5c;
+  --font-display: var(--font-fraunces);
+  --font-body: var(--font-manrope);
+  --font-mono: var(--font-plex-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--violet);
+  color: white;
+}
+
+/* signature: synapse pulse used as the thinking indicator across every tool */
+@keyframes synapse-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.55; }
+  50% { transform: scale(1.35); opacity: 1; }
+}
+
+.synapse-dot {
+  animation: synapse-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes drift {
+  0% { background-position: 0 0; }
+  100% { background-position: 120px 120px; }
+}
+
+.grain-field {
+  background-image: radial-gradient(circle at 1px 1px, rgba(237,233,247,0.06) 1px, transparent 0);
+  background-size: 28px 28px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .synapse-dot { animation: none; }
+}
+
+textarea::placeholder, input::placeholder {
+  color: var(--text-dim);
+}
+
+:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 2px;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}

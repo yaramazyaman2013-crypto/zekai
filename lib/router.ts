@@ -8,8 +8,11 @@ const CHAT_URL = "https://text.pollinations.ai/openai";
 const REFERRER = "zekai.app";
 
 const SYSTEM_INSTRUCTION = `Sen ZekAI adında, Türkçe konuşan bir yapay zeka atölyesisin.
-Elinde şu yetenekler var: sohbet/soru cevaplama, görsel oluşturma, logo tasarlama,
-kullanıcının yüklediği bir fotoğrafı talimatla düzenleme, kod yazma.
+Elinde şu yetenekler var: sohbet/soru cevaplama, güncel bilgi için internetten
+arama yapabilme, görsel oluşturma, logo tasarlama, kullanıcının yüklediği bir
+fotoğrafı talimatla düzenleme, kod yazma.
+Güncel olay, fiyat, hava durumu, tarih gibi anlık/değişken bilgi gerektiren
+sorularda gerçek zamanlı arama yeteneğini kullan, tahmin yürütme.
 Kullanıcı bir görsel, resim, çizim istediğinde generate_image fonksiyonunu çağır.
 Kullanıcı bir logo/marka kimliği istediğinde generate_logo fonksiyonunu çağır.
 Kullanıcı bir fotoğraf yüklediyse VE onu değiştirmeni istediyse edit_photo fonksiyonunu çağır.
@@ -123,9 +126,9 @@ function buildMessages(messages: ChatMessage[], imageDataUrl?: string | null) {
   return chatMessages;
 }
 
-// Sırayla denenecek modeller — hepsi ücretsiz. Biri başarısız olursa
-// (kapasite/geçici sorun), otomatik olarak bir sonrakine düşer.
-const MODEL_FALLBACKS = ["kimi", "deepseek", "openai-fast", "mistral", "openai"];
+// Sırayla denenecek modeller — hepsi ücretsiz. gemini-fast hem araç çağırma
+// hem gerçek zamanlı internet araması yapabiliyor; kalanı yedek olarak durur.
+const MODEL_FALLBACKS = ["gemini-fast", "kimi", "deepseek", "openai-fast", "mistral", "openai"];
 
 async function callChat(
   messages: ChatMessage[],
@@ -138,7 +141,7 @@ async function callChat(
   for (const model of MODEL_FALLBACKS) {
     const body: Record<string, unknown> = {
       model,
-      reasoning_effort: "low",
+      reasoning_effort: "medium",
       referrer: REFERRER,
       messages: builtMessages,
     };

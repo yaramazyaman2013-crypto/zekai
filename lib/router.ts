@@ -129,7 +129,8 @@ async function callChat(
   withTools: boolean
 ) {
   const body: Record<string, unknown> = {
-    model: "openai",
+    model: "openai-large",
+    reasoning_effort: "high",
     referrer: REFERRER,
     messages: buildMessages(messages, imageDataUrl),
   };

@@ -44,6 +44,39 @@ function ThinkingDots() {
   );
 }
 
+function CodeBlock({ code, lang }: { code: string; lang: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // clipboard unavailable — silently ignore
+    }
+  }
+
+  return (
+    <div className="overflow-hidden rounded-xl bg-black/40">
+      <div className="flex items-center justify-between border-b border-white/10 px-3 py-1.5">
+        <span className="font-mono text-[10px] uppercase tracking-wide text-[var(--text-dim)]">
+          {lang || "kod"}
+        </span>
+        <button
+          onClick={copy}
+          className="font-mono text-[11px] text-[var(--text-dim)] transition-colors hover:text-[var(--violet)]"
+        >
+          {copied ? "✓ kopyalandı" : "⧉ kopyala"}
+        </button>
+      </div>
+      <pre className="overflow-x-auto p-3 font-[family-name:var(--font-mono)] text-[13px] leading-relaxed">
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+}
+
 function MessageContent({ content }: { content: string }) {
   if (!content.includes("```")) {
     return <p className="whitespace-pre-wrap">{content}</p>;
@@ -62,19 +95,7 @@ function MessageContent({ content }: { content: string }) {
       }
     } else if (i % 3 === 2) {
       const lang = parts[i - 1];
-      nodes.push(
-        <pre
-          key={i}
-          className="overflow-x-auto rounded-xl bg-black/40 p-3 font-[family-name:var(--font-mono)] text-[13px] leading-relaxed"
-        >
-          {lang && (
-            <div className="mb-1 font-mono text-[10px] uppercase tracking-wide text-[var(--text-dim)]">
-              {lang}
-            </div>
-          )}
-          <code>{parts[i].replace(/\n$/, "")}</code>
-        </pre>
-      );
+      nodes.push(<CodeBlock key={i} code={parts[i].replace(/\n$/, "")} lang={lang} />);
     }
   }
   return <>{nodes}</>;
@@ -285,15 +306,24 @@ export default function UnifiedChat() {
                 )}
                 <MessageContent content={t.content} />
                 {t.imageUrl && (
-                  <a
-                    href={t.imageUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block overflow-hidden rounded-xl border border-[var(--border)]"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={t.imageUrl} alt="" className="w-full" />
-                  </a>
+                  <div className="space-y-1.5">
+                    <a
+                      href={t.imageUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block overflow-hidden rounded-xl border border-[var(--border)]"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={t.imageUrl} alt="" className="w-full" />
+                    </a>
+                    <a
+                      href={t.imageUrl}
+                      download="zekai-gorsel.png"
+                      className="inline-flex items-center gap-1 rounded-full bg-[var(--surface)] px-3 py-1.5 font-mono text-[11px] text-[var(--text)] transition-colors hover:text-[var(--violet)]"
+                    >
+                      ⬇ indir
+                    </a>
+                  </div>
                 )}
                 {t.role === "assistant" && (
                   <button

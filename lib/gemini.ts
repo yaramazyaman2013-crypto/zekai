@@ -1,3 +1,27 @@
+function geminiErrorMessage(status: number, body: string): string {
+  let detail = "";
+  try {
+    detail = JSON.parse(body)?.error?.message || "";
+  } catch {
+    detail = body.slice(0, 200);
+  }
+  if (status === 400 && /API key not valid/i.test(detail)) {
+    return "GOOGLE_API_KEY geçersiz. Vercel'deki değeri kontrol et.";
+  }
+  if (status === 403) {
+    return "GOOGLE_API_KEY'in bu modele erişim izni yok ya da faturalandırma gerekiyor.";
+  }
+  if (status === 404) {
+    return "Model bulunamadı (GEMINI_MODEL yanlış olabilir).";
+  }
+  if (status === 429) {
+    return "Google kotası doldu, birazdan tekrar dene.";
+  }
+  return detail
+    ? `Model yanıt vermedi: ${detail}`
+    : "Model yanıt vermedi. API anahtarını ve kotayı kontrol et.";
+}
+
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 
 const SYSTEM_INSTRUCTION = `Sen ZekAI adında, Türkçe konuşan bir yapay zeka atölyesisin.
@@ -105,8 +129,8 @@ export async function routeMessage(
 
   if (!res.ok) {
     const errText = await res.text();
-    console.error("Gemini error:", errText);
-    throw new Error("Model yanıt vermedi. API anahtarını ve kotayı kontrol et.");
+    console.error("Gemini error:", res.status, errText);
+    throw new Error(geminiErrorMessage(res.status, errText));
   }
 
   const data = await res.json();
@@ -148,7 +172,11 @@ export async function simpleReply(messages: ChatMessage[]): Promise<string> {
     }
   );
 
-  if (!res.ok) throw new Error("Model yanıt vermedi.");
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("Gemini error:", res.status, errText);
+    throw new Error(geminiErrorMessage(res.status, errText));
+  }
   const data = await res.json();
   return (
     data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text || "").join("") ||

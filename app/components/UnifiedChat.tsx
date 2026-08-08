@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 
 type Turn = {
@@ -42,6 +42,42 @@ function ThinkingDots() {
       ))}
     </span>
   );
+}
+
+function MessageContent({ content }: { content: string }) {
+  if (!content.includes("```")) {
+    return <p className="whitespace-pre-wrap">{content}</p>;
+  }
+  const parts = content.split(/```(\w*)\n?/);
+  // parts alternates: [text, lang, code, text, lang, code, ...]
+  const nodes: ReactNode[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 3 === 0) {
+      if (parts[i].trim()) {
+        nodes.push(
+          <p key={i} className="whitespace-pre-wrap">
+            {parts[i].trim()}
+          </p>
+        );
+      }
+    } else if (i % 3 === 2) {
+      const lang = parts[i - 1];
+      nodes.push(
+        <pre
+          key={i}
+          className="overflow-x-auto rounded-xl bg-black/40 p-3 font-[family-name:var(--font-mono)] text-[13px] leading-relaxed"
+        >
+          {lang && (
+            <div className="mb-1 font-mono text-[10px] uppercase tracking-wide text-[var(--text-dim)]">
+              {lang}
+            </div>
+          )}
+          <code>{parts[i].replace(/\n$/, "")}</code>
+        </pre>
+      );
+    }
+  }
+  return <>{nodes}</>;
 }
 
 export default function UnifiedChat() {
@@ -247,7 +283,7 @@ export default function UnifiedChat() {
                     className="max-h-40 rounded-xl border border-white/10 object-cover"
                   />
                 )}
-                <p className="whitespace-pre-wrap">{t.content}</p>
+                <MessageContent content={t.content} />
                 {t.imageUrl && (
                   <a
                     href={t.imageUrl}

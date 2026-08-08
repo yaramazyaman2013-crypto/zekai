@@ -9,10 +9,11 @@ const REFERRER = "zekai.app";
 
 const SYSTEM_INSTRUCTION = `Sen ZekAI adında, Türkçe konuşan bir yapay zeka atölyesisin.
 Elinde şu yetenekler var: sohbet/soru cevaplama, görsel oluşturma, logo tasarlama,
-kullanıcının yüklediği bir fotoğrafı talimatla düzenleme.
+kullanıcının yüklediği bir fotoğrafı talimatla düzenleme, kod yazma.
 Kullanıcı bir görsel, resim, çizim istediğinde generate_image fonksiyonunu çağır.
 Kullanıcı bir logo/marka kimliği istediğinde generate_logo fonksiyonunu çağır.
 Kullanıcı bir fotoğraf yüklediyse VE onu değiştirmeni istediyse edit_photo fonksiyonunu çağır.
+Kullanıcı bir kod, script, fonksiyon, program yazmanı istediğinde write_code fonksiyonunu çağır.
 Video veya müzik üretme yeteneğin YOK. Kullanıcı bunu isterse fonksiyon çağırma,
 bunun yerine dürüstçe henüz bu özelliğin eklenmediğini söyle ve istersen o sahnenin
 durağan bir görselini çizebileceğini teklif et.
@@ -71,9 +72,28 @@ const TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "write_code",
+      description:
+        "Kullanıcının istediği kodu, scripti, fonksiyonu veya programı yazar.",
+      parameters: {
+        type: "object",
+        properties: {
+          request: {
+            type: "string",
+            description:
+              "Kullanıcının kod isteğinin tam, ayrıntılı tarifi (dil/teknoloji belirtilmişse dahil).",
+          },
+        },
+        required: ["request"],
+      },
+    },
+  },
 ];
 
-type FunctionCall = { name: string; args: { prompt?: string } };
+type FunctionCall = { name: string; args: { prompt?: string; request?: string } };
 
 export type RouterResult = {
   text: string | null;
@@ -145,7 +165,7 @@ export async function routeMessage(
   const toolCall = message?.tool_calls?.[0];
   let functionCall: FunctionCall | null = null;
   if (toolCall?.function?.name) {
-    let args: { prompt?: string } = {};
+    let args: { prompt?: string; request?: string } = {};
     try {
       args = JSON.parse(toolCall.function.arguments || "{}");
     } catch {

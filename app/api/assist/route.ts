@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { routeMessage, type ChatMessage } from "@/lib/router";
 import { generateImage, editPhoto } from "@/lib/pollinations";
+import { generateCode } from "@/lib/gemini";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -59,6 +60,15 @@ export async function POST(req: NextRequest) {
           text: routed.text || "İşte düzenlenmiş fotoğraf:",
           imageUrl: editedUrl,
           kind: "edit",
+        });
+      }
+      if (name === "write_code") {
+        const request = args?.request || prompt;
+        const code = await generateCode(request);
+        return NextResponse.json({
+          text: code,
+          imageUrl: null,
+          kind: "code",
         });
       }
     } catch (genErr) {

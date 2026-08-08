@@ -126,14 +126,15 @@ function buildMessages(messages: ChatMessage[], imageDataUrl?: string | null) {
   return chatMessages;
 }
 
-// Sırayla denenecek modeller — hepsi ücretsiz. gemini-fast hem araç çağırma
-// hem gerçek zamanlı internet araması yapabiliyor; kalanı yedek olarak durur.
-const MODEL_FALLBACKS = ["gemini-fast", "kimi", "deepseek", "openai-fast", "mistral", "openai"];
+// Sırayla denenecek modeller — hepsi ücretsiz. En güvenilir/sade modeller önde,
+// daha "havalı" ama daha kırılgan olabilen modeller (arama, akıl yürütme) sonda —
+// böylece temel sohbet neredeyse hiç başarısız olmaz.
+const MODEL_FALLBACKS = ["openai", "openai-fast", "mistral", "gemini-fast", "kimi", "deepseek"];
 
-// Tüm deneme turunun toplam bütçesi. Vercel'in fonksiyon süresi sınırını
-// (Hobby planda çok daha kısa olabiliyor) aşıp isteğin hiç cevapsız takılı
-// kalmaması için sıkı tutuluyor — "sonsuza kadar düşünüyor" hatasının sebebi buydu.
-const GLOBAL_BUDGET_MS = 8000;
+// Tüm deneme turunun toplam bütçesi. Vercel'in fonksiyon süresi sınırını aşıp
+// isteğin hiç cevapsız takılı kalmaması için sınırlı tutuluyor, ama modellerin
+// birbirine geçmesine yetecek kadar geniş.
+const GLOBAL_BUDGET_MS = 20_000;
 
 async function callChat(
   messages: ChatMessage[],
@@ -146,11 +147,10 @@ async function callChat(
 
   for (const model of MODEL_FALLBACKS) {
     const remaining = GLOBAL_BUDGET_MS - (Date.now() - start);
-    if (remaining < 900) break;
+    if (remaining < 1500) break;
 
     const body: Record<string, unknown> = {
       model,
-      reasoning_effort: "medium",
       referrer: REFERRER,
       messages: builtMessages,
     };
@@ -164,7 +164,7 @@ async function callChat(
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(Math.min(remaining, 4500)),
+        signal: AbortSignal.timeout(Math.min(remaining, 8000)),
       });
 
       if (res.ok) return res.json();
@@ -188,7 +188,15 @@ export async function routeMessage(
   messages: ChatMessage[],
   imageDataUrl?: string | null
 ): Promise<RouterResult> {
-  const data = await callChat(messages, imageDataUrl, true);
+  let data;
+  try {
+    data = await callChat(messages, imageDataUrl, true);
+  } catch {
+    // Araç çağırma (görsel/kod/logo algılama) tüm modellerde başarısız oldu —
+    // son çare olarak sade sohbet modunda dener. Görsel/kod isteği bu turda
+    // algılanamaz ama kullanıcı en azından tamamen boş dönmemiş olur.
+    data = await callChat(messages, imageDataUrl, false);
+  }
   const message = data?.choices?.[0]?.message;
 
   const toolCall = message?.tool_calls?.[0];

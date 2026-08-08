@@ -114,6 +114,7 @@ export default function UnifiedChat() {
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const sendRef = useRef<(text: string, viaVoice: boolean) => void>(() => {});
   const abortRef = useRef<AbortController | null>(null);
+  const manualStopRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -176,6 +177,7 @@ export default function UnifiedChat() {
     setBusy(true);
     const controller = new AbortController();
     abortRef.current = controller;
+    const safetyTimeout = setTimeout(() => controller.abort(), 70_000);
     try {
       const res = await fetch("/api/assist", {
         method: "POST",
@@ -201,10 +203,16 @@ export default function UnifiedChat() {
         void playVoice(data.text, withReply.length - 1);
       }
     } catch (e) {
-      if ((e as Error)?.name !== "AbortError") {
+      if ((e as Error)?.name === "AbortError") {
+        if (!manualStopRef.current) {
+          setError("Yanıt çok uzun sürdü, tekrar dener misin?");
+        }
+      } else {
         setError(e instanceof Error ? e.message : "Bir şeyler ters gitti.");
       }
     } finally {
+      clearTimeout(safetyTimeout);
+      manualStopRef.current = false;
       setBusy(false);
       abortRef.current = null;
     }
@@ -247,6 +255,7 @@ export default function UnifiedChat() {
   }
 
   function stopResponse() {
+    manualStopRef.current = true;
     abortRef.current?.abort();
     if (audioRef.current) {
       audioRef.current.pause();

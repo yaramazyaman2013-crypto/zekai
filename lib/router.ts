@@ -130,15 +130,24 @@ function buildMessages(messages: ChatMessage[], imageDataUrl?: string | null) {
 // hem gerçek zamanlı internet araması yapabiliyor; kalanı yedek olarak durur.
 const MODEL_FALLBACKS = ["gemini-fast", "kimi", "deepseek", "openai-fast", "mistral", "openai"];
 
+// Tüm deneme turunun toplam bütçesi. Vercel'in fonksiyon süresi sınırını
+// (Hobby planda çok daha kısa olabiliyor) aşıp isteğin hiç cevapsız takılı
+// kalmaması için sıkı tutuluyor — "sonsuza kadar düşünüyor" hatasının sebebi buydu.
+const GLOBAL_BUDGET_MS = 8000;
+
 async function callChat(
   messages: ChatMessage[],
   imageDataUrl: string | null | undefined,
   withTools: boolean
 ) {
   const builtMessages = buildMessages(messages, imageDataUrl);
+  const start = Date.now();
   let lastErr: unknown;
 
   for (const model of MODEL_FALLBACKS) {
+    const remaining = GLOBAL_BUDGET_MS - (Date.now() - start);
+    if (remaining < 900) break;
+
     const body: Record<string, unknown> = {
       model,
       reasoning_effort: "medium",
@@ -150,40 +159,25 @@ async function callChat(
       body.tool_choice = "auto";
     }
 
-    // Her modeli, geçici bir yoğunluk durumunda kısa bir bekleme sonrası
-    // bir kez daha dener — üç modelin de aynı anda dolu olma ihtimali düşük.
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const res = await fetch(CHAT_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(20_000),
-        });
+    try {
+      const res = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(Math.min(remaining, 4500)),
+      });
 
-        if (res.ok) return res.json();
+      if (res.ok) return res.json();
 
-        const errText = await res.text().catch(() => "");
-        console.error(
-          `Pollinations chat hatası (${model}, deneme ${attempt + 1}):`,
-          res.status,
-          errText.slice(0, 300)
-        );
-        lastErr =
-          res.status === 429
-            ? new Error("Model şu an yoğun, birazdan tekrar dene.")
-            : new Error("Model yanıt vermedi, birazdan tekrar dene.");
-
-        if (res.status === 429 && attempt === 0) {
-          await new Promise((r) => setTimeout(r, 1200));
-          continue;
-        }
-        break;
-      } catch (e) {
-        console.error(`Pollinations isteği başarısız (${model}):`, e);
-        lastErr = e;
-        break;
-      }
+      const errText = await res.text().catch(() => "");
+      console.error(`Pollinations chat hatası (${model}):`, res.status, errText.slice(0, 300));
+      lastErr =
+        res.status === 429
+          ? new Error("Model şu an yoğun, birazdan tekrar dene.")
+          : new Error("Model yanıt vermedi, birazdan tekrar dene.");
+    } catch (e) {
+      console.error(`Pollinations isteği başarısız (${model}):`, e);
+      lastErr = e;
     }
   }
 

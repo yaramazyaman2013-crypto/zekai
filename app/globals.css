@@ -8,7 +8,9 @@
   --text: #ede9f7;
   --text-dim: #8f8aa3;
   --violet: #8266ff;
+  --violet-dim: rgba(130, 102, 255, 0.14);
   --coral: #ff7a5c;
+  --coral-dim: rgba(255, 122, 92, 0.14);
   --lime: #baff5c;
   --font-display: var(--font-fraunces);
   --font-body: var(--font-manrope);
@@ -74,4 +76,46 @@ textarea::placeholder, input::placeholder {
 .scrollbar-thin::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 4px;
+}
+
+/* message entrance */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.rise-in {
+  animation: rise-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* empty-state mark: slow breathing pulse, ties to the synapse signature */
+@keyframes mark-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.92; }
+  50% { transform: scale(1.035); opacity: 1; }
+}
+.mark-breathe {
+  animation: mark-breathe 3.4s ease-in-out infinite;
+}
+
+/* recording ring on the mic button */
+@keyframes mic-ring {
+  0% { box-shadow: 0 0 0 0 rgba(255, 122, 92, 0.45); }
+  100% { box-shadow: 0 0 0 14px rgba(255, 122, 92, 0); }
+}
+.mic-recording {
+  animation: mic-ring 1.4s ease-out infinite;
+}
+
+/* three-dot thinking indicator */
+@keyframes dot-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-3px); opacity: 1; }
+}
+.thinking-dot {
+  animation: dot-bounce 1.1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise-in, .mark-breathe, .mic-recording, .thinking-dot {
+    animation: none;
+  }
 }

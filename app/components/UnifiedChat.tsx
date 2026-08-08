@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 
 type Turn = {
@@ -10,13 +10,18 @@ type Turn = {
   attachedImage?: string | null;
 };
 
+interface SpeechResultLike {
+  0: { transcript: string };
+  isFinal: boolean;
+}
+
 interface SpeechRecognitionLike extends EventTarget {
   lang: string;
   continuous: boolean;
   interimResults: boolean;
   start: () => void;
   stop: () => void;
-  onresult: ((event: { results: { transcript: string }[][] }) => void) | null;
+  onresult: ((event: { results: SpeechResultLike[] }) => void) | null;
   onend: (() => void) | null;
   onerror: (() => void) | null;
 }
@@ -29,6 +34,8 @@ function getSpeechImpl(): (new () => SpeechRecognitionLike) | null {
   };
   return w.SpeechRecognition || w.webkitSpeechRecognition || null;
 }
+
+const SILENCE_MS = 3000;
 
 function ThinkingDots() {
   return (
@@ -48,14 +55,19 @@ export default function UnifiedChat() {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [input, setInput] = useState("");
   const [pendingImage, setPendingImage] = useState<string | null>(null);
-  const [listening, setListening] = useState(false);
+  const [voiceMode, setVoiceMode] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const voiceModeRef = useRef(false);
+  const pausedForProcessingRef = useRef(false);
+  const utteranceRef = useRef("");
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sendRef = useRef<(text: string, viaVoice: boolean) => void>(() => {});
+  const abortRef = useRef<AbortController | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -68,34 +80,93 @@ export default function UnifiedChat() {
     );
   }, [turns]);
 
+  const clearSilenceTimer = useCallback(() => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+  }, []);
+
+  const startRecognition = useCallback(() => {
+    if (!recognitionRef.current) return;
+    try {
+      utteranceRef.current = "";
+      recognitionRef.current.start();
+    } catch {
+      // already running — ignore
+    }
+  }, []);
+
+  const stopVoiceMode = useCallback(() => {
+    voiceModeRef.current = false;
+    setVoiceMode(false);
+    pausedForProcessingRef.current = false;
+    clearSilenceTimer();
+    recognitionRef.current?.stop();
+  }, [clearSilenceTimer]);
+
   useEffect(() => {
     const Impl = getSpeechImpl();
     if (!Impl) return;
     const t = setTimeout(() => setSpeechSupported(true), 0);
     const rec = new Impl();
     rec.lang = "tr-TR";
-    rec.continuous = false;
-    rec.interimResults = false;
-    rec.onresult = (event) => {
-      const transcript = event.results[event.results.length - 1]?.[0]?.transcript;
-      if (transcript) sendRef.current(transcript, true);
-    };
-    rec.onend = () => setListening(false);
-    rec.onerror = () => setListening(false);
-    recognitionRef.current = rec;
-    return () => clearTimeout(t);
-  }, []);
+    rec.continuous = true;
+    rec.interimResults = true;
 
-  function toggleListening() {
-    if (!recognitionRef.current) return;
-    if (listening) {
-      recognitionRef.current.stop();
-      setListening(false);
-    } else {
-      setError(null);
-      recognitionRef.current.start();
-      setListening(true);
+    rec.onresult = (event) => {
+      let combined = "";
+      for (let i = 0; i < event.results.length; i++) {
+        combined += event.results[i][0].transcript;
+      }
+      utteranceRef.current = combined;
+      clearSilenceTimer();
+      silenceTimerRef.current = setTimeout(() => {
+        const said = utteranceRef.current.trim();
+        utteranceRef.current = "";
+        if (!said) return;
+        pausedForProcessingRef.current = true;
+        recognitionRef.current?.stop();
+        sendRef.current(said, true);
+      }, SILENCE_MS);
+    };
+
+    rec.onend = () => {
+      // Browser ended the session on its own (no-speech timeout etc).
+      // If we're mid-processing, the resume happens after the reply.
+      // Otherwise, if voice mode is still on, keep listening.
+      if (voiceModeRef.current && !pausedForProcessingRef.current) {
+        startRecognition();
+      }
+    };
+    rec.onerror = () => {
+      if (voiceModeRef.current && !pausedForProcessingRef.current) {
+        startRecognition();
+      }
+    };
+
+    recognitionRef.current = rec;
+    return () => {
+      clearTimeout(t);
+      clearSilenceTimer();
+    };
+  }, [clearSilenceTimer, startRecognition]);
+
+  function toggleVoiceMode() {
+    if (voiceModeRef.current) {
+      stopVoiceMode();
+      return;
     }
+    setError(null);
+    voiceModeRef.current = true;
+    setVoiceMode(true);
+    pausedForProcessingRef.current = false;
+    startRecognition();
+  }
+
+  function resumeListeningIfNeeded() {
+    pausedForProcessingRef.current = false;
+    if (voiceModeRef.current) startRecognition();
   }
 
   function onFile(file: File | undefined) {
@@ -116,10 +187,13 @@ export default function UnifiedChat() {
     const imageForRequest = pendingImage;
     setPendingImage(null);
     setBusy(true);
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
       const res = await fetch("/api/assist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           messages: next.map((t) => ({ role: t.role, content: t.content })),
           imageDataUrl: imageForRequest,
@@ -138,11 +212,17 @@ export default function UnifiedChat() {
 
       if (viaVoice) {
         void playVoice(data.text, withReply.length - 1);
+      } else {
+        resumeListeningIfNeeded();
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Bir şeyler ters gitti.");
+      if ((e as Error)?.name !== "AbortError") {
+        setError(e instanceof Error ? e.message : "Bir şeyler ters gitti.");
+      }
+      resumeListeningIfNeeded();
     } finally {
       setBusy(false);
+      abortRef.current = null;
     }
   }
 
@@ -151,11 +231,14 @@ export default function UnifiedChat() {
   });
 
   async function playVoice(text: string, index: number) {
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
       setPlayingIndex(index);
       const res = await fetch("/api/voice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({ text }),
       });
       if (!res.ok) {
@@ -166,14 +249,35 @@ export default function UnifiedChat() {
       const url = URL.createObjectURL(blob);
       if (audioRef.current) {
         audioRef.current.src = url;
-        audioRef.current.onended = () => setPlayingIndex(null);
-        void audioRef.current.play();
+        audioRef.current.onended = () => {
+          setPlayingIndex(null);
+          resumeListeningIfNeeded();
+        };
+        await audioRef.current.play();
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Ses oynatılamadı.");
+      if ((e as Error)?.name !== "AbortError") {
+        setError(e instanceof Error ? e.message : "Ses oynatılamadı.");
+      }
       setPlayingIndex(null);
+      resumeListeningIfNeeded();
+    } finally {
+      abortRef.current = null;
     }
   }
+
+  function stopResponse() {
+    abortRef.current?.abort();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    setBusy(false);
+    setPlayingIndex(null);
+    resumeListeningIfNeeded();
+  }
+
+  const showStop = busy || playingIndex !== null;
 
   return (
     <div className="flex h-full flex-col">
@@ -235,12 +339,14 @@ export default function UnifiedChat() {
                 )}
                 {t.role === "assistant" && (
                   <button
-                    onClick={() => playVoice(t.content, i)}
+                    onClick={() =>
+                      playingIndex === i ? stopResponse() : playVoice(t.content, i)
+                    }
                     className="-ml-1 flex items-center gap-1 rounded-full px-1.5 py-1 font-mono text-[11px] text-[var(--text-dim)] transition-colors hover:text-[var(--violet)]"
                   >
                     {playingIndex === i ? (
                       <>
-                        <ThinkingDots /> okunuyor
+                        <ThinkingDots /> okunuyor · durdur
                       </>
                     ) : (
                       "🔊 seslendir"
@@ -266,6 +372,36 @@ export default function UnifiedChat() {
         {error && (
           <div className="mb-2 rounded-xl border-l-2 border-[var(--coral)] bg-[var(--coral-dim)] px-3 py-2 text-[13px] text-[var(--text)]">
             {error}
+          </div>
+        )}
+
+        {voiceMode && (
+          <div className="mb-2 flex items-center gap-2 rounded-xl bg-[var(--coral-dim)] px-3 py-2">
+            <span className="mic-recording h-2 w-2 shrink-0 rounded-full bg-[var(--coral)]" />
+            <span className="font-mono text-xs text-[var(--text)]">
+              {busy || playingIndex !== null
+                ? "cevap veriyorum, sonra dinlemeye dönecek..."
+                : "dinliyorum — 3 sn sessizlikte gönderir"}
+            </span>
+            {showStop && (
+              <button
+                onClick={stopResponse}
+                className="ml-auto rounded-full bg-[var(--surface-raised)] px-3 py-1 font-mono text-[11px] text-[var(--text)]"
+              >
+                ■ durdur
+              </button>
+            )}
+          </div>
+        )}
+
+        {!voiceMode && showStop && (
+          <div className="mb-2 flex justify-end">
+            <button
+              onClick={stopResponse}
+              className="rounded-full bg-[var(--surface-raised)] px-3 py-1.5 font-mono text-[11px] text-[var(--text)]"
+            >
+              ■ cevabı durdur
+            </button>
           </div>
         )}
 
@@ -320,15 +456,15 @@ export default function UnifiedChat() {
           />
           {speechSupported && (
             <button
-              onClick={toggleListening}
-              aria-label={listening ? "Dinlemeyi durdur" : "Mikrofonla konuş"}
+              onClick={toggleVoiceMode}
+              aria-label={voiceMode ? "Sesli sohbeti kapat" : "Sesli sohbeti aç"}
               className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-base text-white transition-colors ${
-                listening
+                voiceMode
                   ? "mic-recording bg-[var(--coral)]"
                   : "bg-[var(--surface-raised)] text-[var(--text-dim)] hover:text-[var(--text)]"
               }`}
             >
-              {listening ? "■" : "🎙"}
+              {voiceMode ? "■" : "🎙"}
             </button>
           )}
           <button

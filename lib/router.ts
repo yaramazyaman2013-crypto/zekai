@@ -123,9 +123,9 @@ function buildMessages(messages: ChatMessage[], imageDataUrl?: string | null) {
   return chatMessages;
 }
 
-// Sırayla denenecek modeller — hepsi ücretsiz. İlki başarısız olursa
+// Sırayla denenecek modeller — hepsi ücretsiz. Biri başarısız olursa
 // (kapasite/geçici sorun), otomatik olarak bir sonrakine düşer.
-const MODEL_FALLBACKS = ["kimi", "deepseek", "openai"];
+const MODEL_FALLBACKS = ["kimi", "deepseek", "openai-fast", "mistral", "openai"];
 
 async function callChat(
   messages: ChatMessage[],
@@ -147,25 +147,40 @@ async function callChat(
       body.tool_choice = "auto";
     }
 
-    try {
-      const res = await fetch(CHAT_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(45_000),
-      });
+    // Her modeli, geçici bir yoğunluk durumunda kısa bir bekleme sonrası
+    // bir kez daha dener — üç modelin de aynı anda dolu olma ihtimali düşük.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch(CHAT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(45_000),
+        });
 
-      if (res.ok) return res.json();
+        if (res.ok) return res.json();
 
-      const errText = await res.text().catch(() => "");
-      console.error(`Pollinations chat hatası (${model}):`, res.status, errText.slice(0, 300));
-      lastErr =
-        res.status === 429
-          ? new Error("Model şu an yoğun, birazdan tekrar dene.")
-          : new Error("Model yanıt vermedi, birazdan tekrar dene.");
-    } catch (e) {
-      console.error(`Pollinations isteği başarısız (${model}):`, e);
-      lastErr = e;
+        const errText = await res.text().catch(() => "");
+        console.error(
+          `Pollinations chat hatası (${model}, deneme ${attempt + 1}):`,
+          res.status,
+          errText.slice(0, 300)
+        );
+        lastErr =
+          res.status === 429
+            ? new Error("Model şu an yoğun, birazdan tekrar dene.")
+            : new Error("Model yanıt vermedi, birazdan tekrar dene.");
+
+        if (res.status === 429 && attempt === 0) {
+          await new Promise((r) => setTimeout(r, 2500));
+          continue;
+        }
+        break;
+      } catch (e) {
+        console.error(`Pollinations isteği başarısız (${model}):`, e);
+        lastErr = e;
+        break;
+      }
     }
   }
 

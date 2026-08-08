@@ -138,7 +138,7 @@ async function callChat(
   for (const model of MODEL_FALLBACKS) {
     const body: Record<string, unknown> = {
       model,
-      reasoning_effort: "high",
+      reasoning_effort: "low",
       referrer: REFERRER,
       messages: builtMessages,
     };
@@ -155,7 +155,7 @@ async function callChat(
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
-          signal: AbortSignal.timeout(45_000),
+          signal: AbortSignal.timeout(20_000),
         });
 
         if (res.ok) return res.json();
@@ -172,7 +172,7 @@ async function callChat(
             : new Error("Model yanıt vermedi, birazdan tekrar dene.");
 
         if (res.status === 429 && attempt === 0) {
-          await new Promise((r) => setTimeout(r, 2500));
+          await new Promise((r) => setTimeout(r, 1200));
           continue;
         }
         break;

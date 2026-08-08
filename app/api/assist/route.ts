@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { routeMessage, type ChatMessage } from "@/lib/gemini";
+import { routeMessage, type ChatMessage } from "@/lib/router";
 import { generateImage, editPhoto } from "@/lib/pollinations";
 
 export const runtime = "nodejs";

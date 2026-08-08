@@ -24,7 +24,7 @@ const plexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "ZekAI — düşünen atölye",
   description:
-    "ZekAI: metinle konuş, görsel ve logo üret, fotoğraf düzenle, sesli sohbet et. Tek atölye, beş alet.",
+    "ZekAI: tek pencereden yaz ya da konuş — sohbet et, görsel ve logo üret, fotoğrafını düzenle.",
 };
 
 export default function RootLayout({

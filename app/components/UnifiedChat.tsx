@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { Synapse } from "./Synapse";
 
 type Turn = {
@@ -31,13 +32,7 @@ function getSpeechImpl(): (new () => SpeechRecognitionLike) | null {
 }
 
 export default function UnifiedChat() {
-  const [turns, setTurns] = useState<Turn[]>([
-    {
-      role: "assistant",
-      content:
-        "Merhaba, ben ZekAI. Yaz ya da mikrofona konuş — görsel, logo, fotoğraf düzenleme ya da sohbet, ne istersen anlayıp yapayım.",
-    },
-  ]);
+  const [turns, setTurns] = useState<Turn[]>([]);
   const [input, setInput] = useState("");
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [listening, setListening] = useState(false);
@@ -170,6 +165,18 @@ export default function UnifiedChat() {
   return (
     <div className="flex h-full flex-col">
       <div ref={scrollRef} className="scrollbar-thin flex-1 overflow-y-auto px-1 py-4 space-y-4">
+        {turns.length === 0 && (
+          <div className="flex h-full flex-col items-center justify-center pb-20">
+            <Image
+              src="/logo-mark.png"
+              alt="ZekAI"
+              width={168}
+              height={168}
+              priority
+              className="h-36 w-36 opacity-95 sm:h-40 sm:w-40"
+            />
+          </div>
+        )}
         {turns.map((t, i) => (
           <div key={i} className={`flex ${t.role === "user" ? "justify-end" : "justify-start"}`}>
             <div

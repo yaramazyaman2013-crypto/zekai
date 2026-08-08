@@ -1,3 +1,4 @@
+import Image from "next/image";
 import UnifiedChat from "./components/UnifiedChat";
 import { Synapse } from "./components/Synapse";
 
@@ -5,7 +6,15 @@ export default function Home() {
   return (
     <div className="grain-field flex h-dvh flex-col bg-[var(--bg)]">
       <header className="flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3 sm:px-8">
-        <div className="flex items-baseline gap-2">
+        <div className="flex items-center gap-2">
+          <Image
+            src="/logo-mark.png"
+            alt=""
+            width={28}
+            height={28}
+            className="h-6 w-6 sm:h-7 sm:w-7"
+            priority
+          />
           <span className="font-[family-name:var(--font-display)] text-xl italic text-[var(--text)] sm:text-2xl">
             Zek<span className="text-[var(--violet)] not-italic">AI</span>
           </span>

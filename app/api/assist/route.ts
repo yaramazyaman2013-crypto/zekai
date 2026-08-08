@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { routeMessage, type ChatMessage } from "@/lib/router";
+import { routeMessage, type ChatMessage, type Effort } from "@/lib/router";
 import { generateImage, editPhoto } from "@/lib/pollinations";
 import { generateCode } from "@/lib/gemini";
 
@@ -8,16 +8,17 @@ export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
-    const { messages, imageDataUrl } = (await req.json()) as {
+    const { messages, imageDataUrl, effort } = (await req.json()) as {
       messages: ChatMessage[];
       imageDataUrl?: string | null;
+      effort?: Effort;
     };
 
     if (!messages || messages.length === 0) {
       return NextResponse.json({ error: "Mesaj boş olamaz." }, { status: 400 });
     }
 
-    const routed = await routeMessage(messages, imageDataUrl);
+    const routed = await routeMessage(messages, imageDataUrl, effort === "ultra" ? "ultra" : "normal");
 
     if (!routed.functionCall) {
       return NextResponse.json({

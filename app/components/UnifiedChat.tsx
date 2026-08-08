@@ -110,6 +110,7 @@ export default function UnifiedChat() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
+  const [effort, setEffort] = useState<"normal" | "ultra">("normal");
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const sendRef = useRef<(text: string, viaVoice: boolean) => void>(() => {});
@@ -186,6 +187,7 @@ export default function UnifiedChat() {
         body: JSON.stringify({
           messages: next.map((t) => ({ role: t.role, content: t.content })),
           imageDataUrl: imageForRequest,
+          effort,
         }),
       });
       const data = await res.json();
@@ -366,6 +368,31 @@ export default function UnifiedChat() {
       </div>
 
       <div className="shrink-0 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-1 sm:px-6">
+        <div className="mb-2 flex justify-end">
+          <div className="inline-flex rounded-full border border-[var(--border)] bg-[var(--surface)] p-0.5">
+            <button
+              onClick={() => setEffort("normal")}
+              className={`rounded-full px-3 py-1 font-mono text-[11px] transition-colors ${
+                effort === "normal"
+                  ? "bg-[var(--violet)] text-white"
+                  : "text-[var(--text-dim)]"
+              }`}
+            >
+              Normal
+            </button>
+            <button
+              onClick={() => setEffort("ultra")}
+              className={`rounded-full px-3 py-1 font-mono text-[11px] transition-colors ${
+                effort === "ultra"
+                  ? "bg-[var(--violet)] text-white"
+                  : "text-[var(--text-dim)]"
+              }`}
+            >
+              ⚡ Ultra
+            </button>
+          </div>
+        </div>
+
         {error && (
           <div className="mb-2 rounded-xl border-l-2 border-[var(--coral)] bg-[var(--coral-dim)] px-3 py-2 text-[13px] text-[var(--text)]">
             {error}

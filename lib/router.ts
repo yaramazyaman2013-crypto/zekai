@@ -123,37 +123,53 @@ function buildMessages(messages: ChatMessage[], imageDataUrl?: string | null) {
   return chatMessages;
 }
 
+// Sırayla denenecek modeller — hepsi ücretsiz. İlki başarısız olursa
+// (kapasite/geçici sorun), otomatik olarak bir sonrakine düşer.
+const MODEL_FALLBACKS = ["kimi", "deepseek", "openai"];
+
 async function callChat(
   messages: ChatMessage[],
   imageDataUrl: string | null | undefined,
   withTools: boolean
 ) {
-  const body: Record<string, unknown> = {
-    model: "openai-large",
-    reasoning_effort: "high",
-    referrer: REFERRER,
-    messages: buildMessages(messages, imageDataUrl),
-  };
-  if (withTools) {
-    body.tools = TOOLS;
-    body.tool_choice = "auto";
+  const builtMessages = buildMessages(messages, imageDataUrl);
+  let lastErr: unknown;
+
+  for (const model of MODEL_FALLBACKS) {
+    const body: Record<string, unknown> = {
+      model,
+      reasoning_effort: "high",
+      referrer: REFERRER,
+      messages: builtMessages,
+    };
+    if (withTools) {
+      body.tools = TOOLS;
+      body.tool_choice = "auto";
+    }
+
+    try {
+      const res = await fetch(CHAT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(45_000),
+      });
+
+      if (res.ok) return res.json();
+
+      const errText = await res.text().catch(() => "");
+      console.error(`Pollinations chat hatası (${model}):`, res.status, errText.slice(0, 300));
+      lastErr =
+        res.status === 429
+          ? new Error("Model şu an yoğun, birazdan tekrar dene.")
+          : new Error("Model yanıt vermedi, birazdan tekrar dene.");
+    } catch (e) {
+      console.error(`Pollinations isteği başarısız (${model}):`, e);
+      lastErr = e;
+    }
   }
 
-  const res = await fetch(CHAT_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(45_000),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text().catch(() => "");
-    console.error("Pollinations chat error:", res.status, errText.slice(0, 300));
-    if (res.status === 429) throw new Error("Model şu an yoğun, birazdan tekrar dene.");
-    throw new Error("Model yanıt vermedi, birazdan tekrar dene.");
-  }
-
-  return res.json();
+  throw lastErr instanceof Error ? lastErr : new Error("Model yanıt vermedi, birazdan tekrar dene.");
 }
 
 export async function routeMessage(

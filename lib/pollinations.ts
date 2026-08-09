@@ -1,48 +1,34 @@
 // Pollinations.ai — sadece görsel, logo ve fotoğraf düzenleme için.
-// Flux/Kontext modelleri Pollinations'ın kendi belgelerinde "her zaman,
-// sınırsız, tamamen ücretsiz" olarak garanti ediliyor (0 Pollen maliyet) —
-// bu yüzden burada kalıyor. Sohbet ve ses buradan TAŞINDI, çünkü onlar
-// (mistral gibi) Pollen kredisi tüketiyordu ve hesap bakiyesi bitince
-// çalışmayı durduruyordu — kalıcı bir çözüm değildi.
-// Anahtar hâlâ tamamen ÜCRETSİZ (enter.pollinations.ai, kart istemez).
+// ÖNEMLİ: Görsel üretimi (Flux/Kontext) resmi olarak "anonim, anahtarsız,
+// sınırsız ücretsiz" — sadece hafif bir hız sınırı var (~15sn/istek).
+// Bir API anahtarıyla (hesaba bağlı) istek atarsan bu Pollen kredisi
+// harcıyor ve hesap bakiyesi biterse çalışmayı durduruyor. O yüzden burada
+// BİLEREK anahtar GÖNDERMİYORUZ — anonim kalmak asıl ücretsiz olan yol.
 
 const IMAGE_BASE = "https://gen.pollinations.ai/image";
 const LITTERBOX_UPLOAD = "https://litterbox.catbox.moe/resources/internals/api.php";
-
-const NO_KEY_MESSAGE =
-  "Görsel özelliği için ücretsiz bir Pollinations API anahtarı gerekiyor. enter.pollinations.ai adresinden ücretsiz kayıt ol (kart istemez), aldığın anahtarı Vercel'de POLLINATIONS_API_KEY olarak ekle.";
-
-function requirePollinationsKey(): string {
-  const key = process.env.POLLINATIONS_API_KEY;
-  if (!key) throw new Error(NO_KEY_MESSAGE);
-  return key;
-}
 
 function randomSeed() {
   return Math.floor(Math.random() * 1_000_000);
 }
 
-async function fetchWithRetry(url: string, timeoutMs: number, attempts = 2): Promise<Response> {
-  const key = requirePollinationsKey();
+async function fetchWithRetry(url: string, timeoutMs: number, attempts = 3): Promise<Response> {
   let lastErr: unknown;
   for (let i = 0; i < attempts; i++) {
     try {
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${key}` },
-        signal: AbortSignal.timeout(timeoutMs),
-      });
+      const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
       if (res.ok) return res;
       const body = await res.text().catch(() => "");
       console.error(`Pollinations isteği ${res.status} döndü:`, body.slice(0, 300));
-      if (res.status === 401) throw new Error(NO_KEY_MESSAGE);
-      if (res.status === 402) throw new Error("Pollinations hesabındaki ücretsiz kredi tükenmiş.");
-      lastErr = new Error(`HTTP ${res.status}`);
+      lastErr =
+        res.status === 429
+          ? new Error("Görsel servisi şu an yoğun (hız sınırı), birazdan tekrar dene.")
+          : new Error(`HTTP ${res.status}: ${body.slice(0, 150) || "detay yok"}`);
     } catch (e) {
-      if (e instanceof Error && e.message === NO_KEY_MESSAGE) throw e;
       console.error("Pollinations isteği başarısız:", e);
       lastErr = e;
     }
-    if (i < attempts - 1) await new Promise((r) => setTimeout(r, 1200));
+    if (i < attempts - 1) await new Promise((r) => setTimeout(r, 2500));
   }
   throw lastErr instanceof Error ? lastErr : new Error("İstek başarısız oldu.");
 }
@@ -81,9 +67,8 @@ export async function generateImage(
   try {
     return await fetchImageAsDataUrl(url);
   } catch (e) {
-    if (e instanceof Error && e.message === NO_KEY_MESSAGE) throw e;
     const detail = e instanceof Error ? e.message : "";
-    throw new Error(`Görsel üretilemedi${detail ? ` (${detail})` : ""}. Servis şu an yoğun olabilir.`);
+    throw new Error(`Görsel üretilemedi${detail ? ` (${detail})` : ""}.`);
   }
 }
 
@@ -129,8 +114,7 @@ export async function editPhoto(prompt: string, imageDataUrl: string): Promise<s
   try {
     return await fetchImageAsDataUrl(url);
   } catch (e) {
-    if (e instanceof Error && e.message === NO_KEY_MESSAGE) throw e;
     const detail = e instanceof Error ? e.message : "";
-    throw new Error(`Fotoğraf düzenlenemedi${detail ? ` (${detail})` : ""}. Servis şu an yoğun olabilir.`);
+    throw new Error(`Fotoğraf düzenlenemedi${detail ? ` (${detail})` : ""}.`);
   }
 }

@@ -142,10 +142,10 @@ function buildMessages(
   return chatMessages;
 }
 
-// Normal moddaki güvenilir sıralama; güncel bilgi gerekiyorsa arama yapabilen
-// gemini-fast öne alınır. Ultra modda akıl yürütme etiketli modeller önde,
-// ama hâlâ hızlı sayılan seçenekler — API'nin reasoning_effort'ına değil,
-// yukarıdaki düşünce-zinciri istemine güveniyoruz.
+// Normal modda artık akıllı ve ücretsiz Kimi K2.5 öncelikli — daha önce doğru
+// adrese gitmediğimiz için "bağlantı mı bozuk" diye şüpheyle sade modelleri
+// öne almıştım, artık gerek yok. Güncel bilgi gerekiyorsa arama yapabilen
+// gemini-fast öne alınır. Sağlam temel modeller yine de yedek olarak duruyor.
 function modelOrder(effort: Effort, currentInfo: boolean): string[] {
   if (effort === "ultra") {
     return currentInfo
@@ -153,8 +153,8 @@ function modelOrder(effort: Effort, currentInfo: boolean): string[] {
       : ["kimi", "deepseek", "gemini-fast", "openai", "openai-fast"];
   }
   return currentInfo
-    ? ["gemini-fast", "openai", "openai-fast", "mistral"]
-    : ["openai", "openai-fast", "mistral", "gemini-fast"];
+    ? ["gemini-fast", "kimi", "openai", "openai-fast", "mistral"]
+    : ["kimi", "openai", "gemini-fast", "openai-fast", "mistral"];
 }
 
 // Tüm deneme turunun toplam bütçesi. Vercel'in fonksiyon süresi sınırını aşıp

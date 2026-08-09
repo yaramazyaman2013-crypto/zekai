@@ -208,19 +208,31 @@ async function callChat(
 
       const errText = await res.text().catch(() => "");
       console.error(`Pollinations chat hatası (${model}):`, res.status, errText.slice(0, 300));
+      let detail = "";
+      try {
+        detail = JSON.parse(errText)?.error?.message || JSON.parse(errText)?.message || "";
+      } catch {
+        detail = errText.slice(0, 150);
+      }
       if (res.status === 401) {
         lastErr = new Error(
-          "Pollinations API anahtarı geçersiz. Vercel'deki POLLINATIONS_API_KEY değerini kontrol et."
+          `Pollinations API anahtarı geçersiz (${model}). ${detail || "Vercel'deki POLLINATIONS_API_KEY değerini kontrol et."}`
         );
         break;
       }
-      lastErr =
-        res.status === 429
-          ? new Error("Model şu an yoğun, birazdan tekrar dene.")
-          : new Error("Model yanıt vermedi, birazdan tekrar dene.");
+      if (res.status === 429) {
+        lastErr = new Error(`Model şu an yoğun (${model}), birazdan tekrar dene.`);
+      } else {
+        lastErr = new Error(
+          `Model yanıt vermedi (${model}, HTTP ${res.status}): ${detail || "detay yok"}`
+        );
+      }
     } catch (e) {
       console.error(`Pollinations isteği başarısız (${model}):`, e);
-      lastErr = e;
+      lastErr =
+        e instanceof Error
+          ? new Error(`Bağlantı hatası (${model}): ${e.message}`)
+          : e;
     }
   }
 

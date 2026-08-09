@@ -81,7 +81,8 @@ export async function generateImage(
     return await fetchImageAsDataUrl(url);
   } catch (e) {
     if (e instanceof Error && e.message === NO_KEY_MESSAGE) throw e;
-    throw new Error("Görsel üretilemedi. Servis şu an yoğun olabilir, biraz sonra tekrar dene.");
+    const detail = e instanceof Error ? e.message : "";
+    throw new Error(`Görsel üretilemedi${detail ? ` (${detail})` : ""}. Servis şu an yoğun olabilir.`);
   }
 }
 
@@ -128,7 +129,8 @@ export async function editPhoto(prompt: string, imageDataUrl: string): Promise<s
     return await fetchImageAsDataUrl(url);
   } catch (e) {
     if (e instanceof Error && e.message === NO_KEY_MESSAGE) throw e;
-    throw new Error("Fotoğraf düzenlenemedi. Servis şu an yoğun olabilir, biraz sonra tekrar dene.");
+    const detail = e instanceof Error ? e.message : "";
+    throw new Error(`Fotoğraf düzenlenemedi${detail ? ` (${detail})` : ""}. Servis şu an yoğun olabilir.`);
   }
 }
 

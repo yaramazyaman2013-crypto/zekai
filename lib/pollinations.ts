@@ -6,13 +6,14 @@
 // BİLEREK anahtar GÖNDERMİYORUZ — anonim kalmak asıl ücretsiz olan yol.
 
 const IMAGE_BASE = "https://gen.pollinations.ai/image";
+const LEGACY_IMAGE_BASE = "https://image.pollinations.ai/prompt";
 const LITTERBOX_UPLOAD = "https://litterbox.catbox.moe/resources/internals/api.php";
 
 function randomSeed() {
   return Math.floor(Math.random() * 1_000_000);
 }
 
-async function fetchWithRetry(url: string, timeoutMs: number, attempts = 3): Promise<Response> {
+async function fetchWithRetry(url: string, timeoutMs: number, attempts = 2): Promise<Response> {
   let lastErr: unknown;
   for (let i = 0; i < attempts; i++) {
     try {
@@ -20,21 +21,38 @@ async function fetchWithRetry(url: string, timeoutMs: number, attempts = 3): Pro
       if (res.ok) return res;
       const body = await res.text().catch(() => "");
       console.error(`Pollinations isteği ${res.status} döndü:`, body.slice(0, 300));
-      lastErr =
-        res.status === 429
-          ? new Error("Görsel servisi şu an yoğun (hız sınırı), birazdan tekrar dene.")
-          : new Error(`HTTP ${res.status}: ${body.slice(0, 150) || "detay yok"}`);
+      lastErr = new Error(`HTTP ${res.status}: ${body.slice(0, 150) || "detay yok"}`);
     } catch (e) {
       console.error("Pollinations isteği başarısız:", e);
       lastErr = e;
     }
-    if (i < attempts - 1) await new Promise((r) => setTimeout(r, 2500));
+    if (i < attempts - 1) await new Promise((r) => setTimeout(r, 1500));
   }
   throw lastErr instanceof Error ? lastErr : new Error("İstek başarısız oldu.");
 }
 
-async function fetchImageAsDataUrl(url: string): Promise<string> {
-  const res = await fetchWithRetry(url, 55_000);
+// gen.pollinations.ai artık anonim erişimi reddediyor; eski (henüz kapatılmamış)
+// image.pollinations.ai anonim ve ücretsiz kalmış olabilir — önce yeniyi,
+// olmazsa eskiyi dener.
+async function fetchImageWithFallback(
+  primaryUrl: string,
+  legacyUrl: string
+): Promise<Response> {
+  try {
+    return await fetchWithRetry(primaryUrl, 55_000, 1);
+  } catch (primaryErr) {
+    console.error("Yeni adres başarısız, eski adres deneniyor:", primaryErr);
+    try {
+      return await fetchWithRetry(legacyUrl, 55_000, 2);
+    } catch (legacyErr) {
+      console.error("Eski adres de başarısız:", legacyErr);
+      throw legacyErr;
+    }
+  }
+}
+
+async function fetchImageAsDataUrl(primaryUrl: string, legacyUrl: string): Promise<string> {
+  const res = await fetchImageWithFallback(primaryUrl, legacyUrl);
   const contentType = res.headers.get("content-type") || "image/jpeg";
   if (!contentType.startsWith("image/")) {
     const body = await res.text().catch(() => "");
@@ -62,10 +80,11 @@ export async function generateImage(
     nologo: "true",
   });
 
-  const url = `${IMAGE_BASE}/${encodeURIComponent(finalPrompt)}?${params.toString()}`;
+  const primaryUrl = `${IMAGE_BASE}/${encodeURIComponent(finalPrompt)}?${params.toString()}`;
+  const legacyUrl = `${LEGACY_IMAGE_BASE}/${encodeURIComponent(finalPrompt)}?${params.toString()}`;
 
   try {
-    return await fetchImageAsDataUrl(url);
+    return await fetchImageAsDataUrl(primaryUrl, legacyUrl);
   } catch (e) {
     const detail = e instanceof Error ? e.message : "";
     throw new Error(`Görsel üretilemedi${detail ? ` (${detail})` : ""}.`);
@@ -109,10 +128,11 @@ export async function editPhoto(prompt: string, imageDataUrl: string): Promise<s
     nologo: "true",
   });
 
-  const url = `${IMAGE_BASE}/${encodeURIComponent(prompt)}?${params.toString()}`;
+  const primaryUrl = `${IMAGE_BASE}/${encodeURIComponent(prompt)}?${params.toString()}`;
+  const legacyUrl = `${LEGACY_IMAGE_BASE}/${encodeURIComponent(prompt)}?${params.toString()}`;
 
   try {
-    return await fetchImageAsDataUrl(url);
+    return await fetchImageAsDataUrl(primaryUrl, legacyUrl);
   } catch (e) {
     const detail = e instanceof Error ? e.message : "";
     throw new Error(`Fotoğraf düzenlenemedi${detail ? ` (${detail})` : ""}.`);

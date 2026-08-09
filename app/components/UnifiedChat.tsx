@@ -116,7 +116,6 @@ export default function UnifiedChat() {
   const sendRef = useRef<(text: string, viaVoice: boolean) => void>(() => {});
   const abortRef = useRef<AbortController | null>(null);
   const manualStopRef = useRef(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const turnsRef = useRef<Turn[]>(turns);
@@ -224,44 +223,25 @@ export default function UnifiedChat() {
     sendRef.current = send;
   });
 
-  async function playVoice(text: string, index: number) {
-    const controller = new AbortController();
-    abortRef.current = controller;
-    try {
-      setPlayingIndex(index);
-      const res = await fetch("/api/voice", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: controller.signal,
-        body: JSON.stringify({ text }),
-      });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || "Ses üretilemedi.");
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      if (audioRef.current) {
-        audioRef.current.src = url;
-        audioRef.current.onended = () => setPlayingIndex(null);
-        await audioRef.current.play();
-      }
-    } catch (e) {
-      if ((e as Error)?.name !== "AbortError") {
-        setError(e instanceof Error ? e.message : "Ses oynatılamadı.");
-      }
-      setPlayingIndex(null);
-    } finally {
-      abortRef.current = null;
+  function playVoice(text: string, index: number) {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      setError("Bu tarayıcı sesli okumayı desteklemiyor.");
+      return;
     }
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "tr-TR";
+    utterance.onend = () => setPlayingIndex(null);
+    utterance.onerror = () => setPlayingIndex(null);
+    setPlayingIndex(index);
+    window.speechSynthesis.speak(utterance);
   }
 
   function stopResponse() {
     manualStopRef.current = true;
     abortRef.current?.abort();
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
     }
     setBusy(false);
     setPlayingIndex(null);
@@ -482,7 +462,6 @@ export default function UnifiedChat() {
           </button>
         </div>
       </div>
-      <audio ref={audioRef} className="hidden" />
     </div>
   );
 }

@@ -1,17 +1,18 @@
-// Pollinations.ai — görsel, fotoğraf düzenleme ve ses.
-// 2026 ortasında Pollinations tüm üretim isteklerinde bir API anahtarı
-// zorunlu kıldı (kendi belgelerinde: "anonim trafikten 401 hatası
-// beklenir"). Anahtar hâlâ tamamen ÜCRETSİZ — enter.pollinations.ai'den
-// kart istemeden alınıyor — sadece artık kayıt şart.
+// Pollinations.ai — sadece görsel, logo ve fotoğraf düzenleme için.
+// Flux/Kontext modelleri Pollinations'ın kendi belgelerinde "her zaman,
+// sınırsız, tamamen ücretsiz" olarak garanti ediliyor (0 Pollen maliyet) —
+// bu yüzden burada kalıyor. Sohbet ve ses buradan TAŞINDI, çünkü onlar
+// (mistral gibi) Pollen kredisi tüketiyordu ve hesap bakiyesi bitince
+// çalışmayı durduruyordu — kalıcı bir çözüm değildi.
+// Anahtar hâlâ tamamen ÜCRETSİZ (enter.pollinations.ai, kart istemez).
 
 const IMAGE_BASE = "https://gen.pollinations.ai/image";
-const AUDIO_BASE = "https://gen.pollinations.ai/audio";
 const LITTERBOX_UPLOAD = "https://litterbox.catbox.moe/resources/internals/api.php";
 
 const NO_KEY_MESSAGE =
-  "Görsel/ses özelliği için ücretsiz bir Pollinations API anahtarı gerekiyor. enter.pollinations.ai adresinden ücretsiz kayıt ol (kart istemez), aldığın anahtarı Vercel'de POLLINATIONS_API_KEY olarak ekle.";
+  "Görsel özelliği için ücretsiz bir Pollinations API anahtarı gerekiyor. enter.pollinations.ai adresinden ücretsiz kayıt ol (kart istemez), aldığın anahtarı Vercel'de POLLINATIONS_API_KEY olarak ekle.";
 
-export function requirePollinationsKey(): string {
+function requirePollinationsKey(): string {
   const key = process.env.POLLINATIONS_API_KEY;
   if (!key) throw new Error(NO_KEY_MESSAGE);
   return key;
@@ -132,19 +133,4 @@ export async function editPhoto(prompt: string, imageDataUrl: string): Promise<s
     const detail = e instanceof Error ? e.message : "";
     throw new Error(`Fotoğraf düzenlenemedi${detail ? ` (${detail})` : ""}. Servis şu an yoğun olabilir.`);
   }
-}
-
-export async function textToSpeech(text: string): Promise<ArrayBuffer> {
-  const safeText = text.length > 700 ? text.slice(0, 700) + "..." : text;
-  const params = new URLSearchParams({ voice: "nova" });
-  const url = `${AUDIO_BASE}/${encodeURIComponent(safeText)}?${params.toString()}`;
-
-  const res = await fetchWithRetry(url, 30_000);
-  const contentType = res.headers.get("content-type") || "";
-  if (!contentType.startsWith("audio/")) {
-    const body = await res.text().catch(() => "");
-    console.error("Pollinations ses yerine şu içeriği döndürdü:", body.slice(0, 300));
-    throw new Error("Ses üretilemedi, birazdan tekrar dene.");
-  }
-  return res.arrayBuffer();
 }

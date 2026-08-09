@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { routeMessage, type ChatMessage, type Effort } from "@/lib/router";
+import { routeMessage, generateCode, type ChatMessage, type Effort } from "@/lib/gemini";
 import { generateImage, editPhoto } from "@/lib/pollinations";
-import { generateCode } from "@/lib/gemini";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;

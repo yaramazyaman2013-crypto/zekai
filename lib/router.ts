@@ -1,6 +1,8 @@
-// Sohbet + niyet yönlendirme: Pollinations.ai'nin OpenAI uyumlu ücretsiz metin
-// modeli üzerinden. Anahtar gerekmiyor, günlük/aylık bir kota yok — sadece
-// anonim kullanımda hafif bir hız sınırı var (~15 sn/istek).
+// Sohbet + niyet yönlendirme: Pollinations.ai'nin OpenAI uyumlu metin modeli
+// üzerinden. Anahtar tamamen ücretsiz (enter.pollinations.ai, kart istemez)
+// ama artık zorunlu — Pollinations anonim istekleri kasıtlı reddediyor.
+
+import { requirePollinationsKey } from "./pollinations";
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 export type Effort = "normal" | "ultra";
@@ -168,6 +170,7 @@ async function callChat(
   withTools: boolean,
   effort: Effort
 ) {
+  const apiKey = requirePollinationsKey();
   const currentInfo = needsCurrentInfo(messages);
   const systemInstruction =
     BASE_SYSTEM_INSTRUCTION + (effort === "ultra" ? ULTRA_ADDITION : "");
@@ -193,7 +196,10 @@ async function callChat(
     try {
       const res = await fetch(CHAT_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(Math.min(remaining, 9000)),
       });
@@ -202,6 +208,12 @@ async function callChat(
 
       const errText = await res.text().catch(() => "");
       console.error(`Pollinations chat hatası (${model}):`, res.status, errText.slice(0, 300));
+      if (res.status === 401) {
+        lastErr = new Error(
+          "Pollinations API anahtarı geçersiz. Vercel'deki POLLINATIONS_API_KEY değerini kontrol et."
+        );
+        break;
+      }
       lastErr =
         res.status === 429
           ? new Error("Model şu an yoğun, birazdan tekrar dene.")
@@ -220,6 +232,7 @@ export async function routeMessage(
   imageDataUrl?: string | null,
   effort: Effort = "normal"
 ): Promise<RouterResult> {
+  requirePollinationsKey();
   let data;
   try {
     data = await callChat(messages, imageDataUrl, true, effort);

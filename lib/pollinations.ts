@@ -1,25 +1,43 @@
-// Pollinations.ai — free, no API key, no card required.
-// Anonymous usage is rate-limited (~1 request/15s) but needs zero payment setup.
+// Pollinations.ai — görsel, fotoğraf düzenleme ve ses.
+// 2026 ortasında Pollinations tüm üretim isteklerinde bir API anahtarı
+// zorunlu kıldı (kendi belgelerinde: "anonim trafikten 401 hatası
+// beklenir"). Anahtar hâlâ tamamen ÜCRETSİZ — enter.pollinations.ai'den
+// kart istemeden alınıyor — sadece artık kayıt şart.
 
 const IMAGE_BASE = "https://gen.pollinations.ai/image";
 const AUDIO_BASE = "https://gen.pollinations.ai/audio";
-const REFERRER = "zekai.app";
 const LITTERBOX_UPLOAD = "https://litterbox.catbox.moe/resources/internals/api.php";
+
+const NO_KEY_MESSAGE =
+  "Görsel/ses özelliği için ücretsiz bir Pollinations API anahtarı gerekiyor. enter.pollinations.ai adresinden ücretsiz kayıt ol (kart istemez), aldığın anahtarı Vercel'de POLLINATIONS_API_KEY olarak ekle.";
+
+export function requirePollinationsKey(): string {
+  const key = process.env.POLLINATIONS_API_KEY;
+  if (!key) throw new Error(NO_KEY_MESSAGE);
+  return key;
+}
 
 function randomSeed() {
   return Math.floor(Math.random() * 1_000_000);
 }
 
 async function fetchWithRetry(url: string, timeoutMs: number, attempts = 2): Promise<Response> {
+  const key = requirePollinationsKey();
   let lastErr: unknown;
   for (let i = 0; i < attempts; i++) {
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${key}` },
+        signal: AbortSignal.timeout(timeoutMs),
+      });
       if (res.ok) return res;
       const body = await res.text().catch(() => "");
       console.error(`Pollinations isteği ${res.status} döndü:`, body.slice(0, 300));
+      if (res.status === 401) throw new Error(NO_KEY_MESSAGE);
+      if (res.status === 402) throw new Error("Pollinations hesabındaki ücretsiz kredi tükenmiş.");
       lastErr = new Error(`HTTP ${res.status}`);
     } catch (e) {
+      if (e instanceof Error && e.message === NO_KEY_MESSAGE) throw e;
       console.error("Pollinations isteği başarısız:", e);
       lastErr = e;
     }
@@ -55,14 +73,14 @@ export async function generateImage(
     height: mode === "logo" ? "1024" : "720",
     seed: String(randomSeed()),
     nologo: "true",
-    referrer: REFERRER,
   });
 
   const url = `${IMAGE_BASE}/${encodeURIComponent(finalPrompt)}?${params.toString()}`;
 
   try {
     return await fetchImageAsDataUrl(url);
-  } catch {
+  } catch (e) {
+    if (e instanceof Error && e.message === NO_KEY_MESSAGE) throw e;
     throw new Error("Görsel üretilemedi. Servis şu an yoğun olabilir, biraz sonra tekrar dene.");
   }
 }
@@ -102,24 +120,21 @@ export async function editPhoto(prompt: string, imageDataUrl: string): Promise<s
     height: "1024",
     seed: String(randomSeed()),
     nologo: "true",
-    referrer: REFERRER,
   });
 
   const url = `${IMAGE_BASE}/${encodeURIComponent(prompt)}?${params.toString()}`;
 
   try {
     return await fetchImageAsDataUrl(url);
-  } catch {
+  } catch (e) {
+    if (e instanceof Error && e.message === NO_KEY_MESSAGE) throw e;
     throw new Error("Fotoğraf düzenlenemedi. Servis şu an yoğun olabilir, biraz sonra tekrar dene.");
   }
 }
 
 export async function textToSpeech(text: string): Promise<ArrayBuffer> {
   const safeText = text.length > 700 ? text.slice(0, 700) + "..." : text;
-  const params = new URLSearchParams({
-    voice: "nova",
-    referrer: REFERRER,
-  });
+  const params = new URLSearchParams({ voice: "nova" });
   const url = `${AUDIO_BASE}/${encodeURIComponent(safeText)}?${params.toString()}`;
 
   const res = await fetchWithRetry(url, 30_000);

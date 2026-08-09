@@ -1,7 +1,8 @@
 // Pollinations.ai — free, no API key, no card required.
 // Anonymous usage is rate-limited (~1 request/15s) but needs zero payment setup.
 
-const IMAGE_BASE = "https://image.pollinations.ai/prompt";
+const IMAGE_BASE = "https://gen.pollinations.ai/image";
+const AUDIO_BASE = "https://gen.pollinations.ai/audio";
 const REFERRER = "zekai.app";
 const LITTERBOX_UPLOAD = "https://litterbox.catbox.moe/resources/internals/api.php";
 
@@ -116,11 +117,10 @@ export async function editPhoto(prompt: string, imageDataUrl: string): Promise<s
 export async function textToSpeech(text: string): Promise<ArrayBuffer> {
   const safeText = text.length > 700 ? text.slice(0, 700) + "..." : text;
   const params = new URLSearchParams({
-    model: "openai-audio",
     voice: "nova",
     referrer: REFERRER,
   });
-  const url = `https://text.pollinations.ai/${encodeURIComponent(safeText)}?${params.toString()}`;
+  const url = `${AUDIO_BASE}/${encodeURIComponent(safeText)}?${params.toString()}`;
 
   const res = await fetchWithRetry(url, 30_000);
   const contentType = res.headers.get("content-type") || "";

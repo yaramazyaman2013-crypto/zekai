@@ -5,8 +5,7 @@
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 export type Effort = "normal" | "ultra";
 
-const CHAT_URL = "https://text.pollinations.ai/openai";
-const REFERRER = "zekai.app";
+const CHAT_URL = "https://gen.pollinations.ai/v1/chat/completions";
 
 const BASE_SYSTEM_INSTRUCTION = `Sen ZekAI adında, Türkçe konuşan bir yapay zeka atölyesisin.
 Elinde şu yetenekler var: sohbet/soru cevaplama, güncel bilgi için internetten
@@ -184,7 +183,6 @@ async function callChat(
 
     const body: Record<string, unknown> = {
       model,
-      referrer: REFERRER,
       messages: builtMessages,
     };
     if (withTools) {

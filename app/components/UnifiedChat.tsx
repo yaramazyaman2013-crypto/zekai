@@ -273,24 +273,6 @@ export default function UnifiedChat() {
             <p className="font-[family-name:var(--font-display)] text-xl italic text-[var(--text)]">
               Ne yapalım?
             </p>
-            <div className="flex flex-wrap justify-center gap-2 px-4">
-              {[
-                { label: "✏️ Görsel çiz", fill: "Bir görsel çiz: " },
-                { label: "🎨 Logo tasarla", fill: "Bir logo tasarla: " },
-                { label: "💻 Kod yaz", fill: "Şunu yapan bir kod yaz: " },
-              ].map((s) => (
-                <button
-                  key={s.label}
-                  onClick={() => {
-                    setInput(s.fill);
-                    requestAnimationFrame(() => textareaRef.current?.focus());
-                  }}
-                  className="tap-feedback rounded-full border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2 text-[13px] text-[var(--text)] hover:border-[var(--violet)]"
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
           </div>
         )}
 

@@ -58,14 +58,16 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-xl bg-black/40">
-      <div className="flex items-center justify-between border-b border-white/10 px-3 py-1.5">
+    <div className="overflow-hidden rounded-xl border border-white/5 bg-black/40">
+      <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.02] px-3 py-1.5">
         <span className="font-mono text-[10px] uppercase tracking-wide text-[var(--text-dim)]">
           {lang || "kod"}
         </span>
         <button
           onClick={copy}
-          className="font-mono text-[11px] text-[var(--text-dim)] transition-colors hover:text-[var(--violet)]"
+          className={`tap-feedback font-mono text-[11px] transition-colors ${
+            copied ? "check-pop text-[var(--lime)]" : "text-[var(--text-dim)] hover:text-[var(--violet-bright)]"
+          }`}
         >
           {copied ? "✓ kopyalandı" : "⧉ kopyala"}
         </button>
@@ -117,6 +119,7 @@ export default function UnifiedChat() {
   const abortRef = useRef<AbortController | null>(null);
   const manualStopRef = useRef(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const turnsRef = useRef<Turn[]>(turns);
 
@@ -256,18 +259,38 @@ export default function UnifiedChat() {
         className="scrollbar-thin flex-1 overflow-y-auto px-4 pb-3 pt-2 sm:px-6"
       >
         {turns.length === 0 && (
-          <div className="flex h-full flex-col items-center justify-center gap-3 pb-24">
-            <Image
-              src="/logo-mark.png"
-              alt="ZekAI"
-              width={168}
-              height={168}
-              priority
-              className="mark-breathe h-32 w-32 sm:h-36 sm:w-36"
-            />
-            <p className="font-mono text-xs tracking-wide text-[var(--text-dim)]">
-              yaz ya da konuş
+          <div className="flex h-full flex-col items-center justify-center gap-5 pb-24">
+            <div className="mark-glow">
+              <Image
+                src="/logo-mark.png"
+                alt="ZekAI"
+                width={168}
+                height={168}
+                priority
+                className="mark-breathe h-28 w-28 sm:h-32 sm:w-32"
+              />
+            </div>
+            <p className="font-[family-name:var(--font-display)] text-xl italic text-[var(--text)]">
+              Ne yapalım?
             </p>
+            <div className="flex flex-wrap justify-center gap-2 px-4">
+              {[
+                { label: "✏️ Görsel çiz", fill: "Bir görsel çiz: " },
+                { label: "🎨 Logo tasarla", fill: "Bir logo tasarla: " },
+                { label: "💻 Kod yaz", fill: "Şunu yapan bir kod yaz: " },
+              ].map((s) => (
+                <button
+                  key={s.label}
+                  onClick={() => {
+                    setInput(s.fill);
+                    requestAnimationFrame(() => textareaRef.current?.focus());
+                  }}
+                  className="tap-feedback rounded-full border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2 text-[13px] text-[var(--text)] hover:border-[var(--violet)]"
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -278,13 +301,13 @@ export default function UnifiedChat() {
               className={`rise-in flex ${t.role === "user" ? "justify-end" : "justify-start"}`}
             >
               {t.role === "assistant" && (
-                <span className="mr-2 mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--violet)]" />
+                <span className="synapse-dot mr-2 mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--violet)]" />
               )}
               <div
                 className={`max-w-[82%] space-y-2 rounded-[20px] px-4 py-2.5 text-[15px] leading-relaxed ${
                   t.role === "user"
-                    ? "rounded-br-md bg-[var(--violet)] text-white shadow-[0_4px_16px_-4px_rgba(130,102,255,0.5)]"
-                    : "rounded-bl-md bg-[var(--surface-raised)] text-[var(--text)]"
+                    ? "rounded-br-md bg-gradient-to-br from-[var(--violet-bright)] to-[var(--violet-deep)] text-white shadow-[0_4px_20px_-4px_rgba(130,102,255,0.55)]"
+                    : "rounded-bl-md border border-[var(--border-soft)] bg-[var(--surface-raised)] text-[var(--text)]"
                 }`}
               >
                 {t.attachedImage && (
@@ -297,7 +320,7 @@ export default function UnifiedChat() {
                 )}
                 <MessageContent content={t.content} />
                 {t.imageUrl && (
-                  <div className="space-y-1.5">
+                  <div className="glow-in space-y-1.5">
                     <a
                       href={t.imageUrl}
                       target="_blank"
@@ -310,7 +333,7 @@ export default function UnifiedChat() {
                     <a
                       href={t.imageUrl}
                       download="zekai-gorsel.png"
-                      className="inline-flex items-center gap-1 rounded-full bg-[var(--surface)] px-3 py-1.5 font-mono text-[11px] text-[var(--text)] transition-colors hover:text-[var(--violet)]"
+                      className="tap-feedback inline-flex items-center gap-1 rounded-full bg-[var(--surface)] px-3 py-1.5 font-mono text-[11px] text-[var(--text)] hover:text-[var(--lime)]"
                     >
                       ⬇ indir
                     </a>
@@ -321,7 +344,7 @@ export default function UnifiedChat() {
                     onClick={() =>
                       playingIndex === i ? stopResponse() : playVoice(t.content, i)
                     }
-                    className="-ml-1 flex items-center gap-1 rounded-full px-1.5 py-1 font-mono text-[11px] text-[var(--text-dim)] transition-colors hover:text-[var(--violet)]"
+                    className="tap-feedback -ml-1 flex items-center gap-1 rounded-full px-1.5 py-1 font-mono text-[11px] text-[var(--text-dim)] hover:text-[var(--violet-bright)]"
                   >
                     {playingIndex === i ? (
                       <>
@@ -338,8 +361,8 @@ export default function UnifiedChat() {
 
           {busy && (
             <div className="rise-in flex justify-start">
-              <span className="mr-2 mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--violet)]" />
-              <div className="rounded-[20px] rounded-bl-md bg-[var(--surface-raised)] px-4 py-3">
+              <span className="synapse-dot mr-2 mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--violet)]" />
+              <div className="rounded-[20px] rounded-bl-md border border-[var(--border-soft)] bg-[var(--surface-raised)] px-4 py-3">
                 <ThinkingDots />
               </div>
             </div>
@@ -349,23 +372,26 @@ export default function UnifiedChat() {
 
       <div className="shrink-0 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-1 sm:px-6">
         <div className="mb-2 flex justify-end">
-          <div className="inline-flex rounded-full border border-[var(--border)] bg-[var(--surface)] p-0.5">
+          <div className="relative inline-flex rounded-full border border-[var(--border)] bg-[var(--surface)] p-0.5">
+            <div
+              className={`absolute inset-y-0.5 w-[74px] rounded-full transition-transform duration-300 ease-out ${
+                effort === "ultra"
+                  ? "translate-x-[74px] bg-gradient-to-r from-[var(--violet)] to-[var(--coral)]"
+                  : "translate-x-0 bg-[var(--violet)]"
+              }`}
+            />
             <button
               onClick={() => setEffort("normal")}
-              className={`rounded-full px-3 py-1 font-mono text-[11px] transition-colors ${
-                effort === "normal"
-                  ? "bg-[var(--violet)] text-white"
-                  : "text-[var(--text-dim)]"
+              className={`tap-feedback relative w-[74px] rounded-full py-1 font-mono text-[11px] ${
+                effort === "normal" ? "text-white" : "text-[var(--text-dim)]"
               }`}
             >
               Normal
             </button>
             <button
               onClick={() => setEffort("ultra")}
-              className={`rounded-full px-3 py-1 font-mono text-[11px] transition-colors ${
-                effort === "ultra"
-                  ? "bg-[var(--violet)] text-white"
-                  : "text-[var(--text-dim)]"
+              className={`tap-feedback relative w-[74px] rounded-full py-1 font-mono text-[11px] ${
+                effort === "ultra" ? "text-white" : "text-[var(--text-dim)]"
               }`}
             >
               ⚡ Ultra
@@ -374,7 +400,7 @@ export default function UnifiedChat() {
         </div>
 
         {error && (
-          <div className="mb-2 rounded-xl border-l-2 border-[var(--coral)] bg-[var(--coral-dim)] px-3 py-2 text-[13px] text-[var(--text)]">
+          <div className="rise-in mb-2 rounded-xl border-l-2 border-[var(--coral)] bg-[var(--coral-dim)] px-3 py-2 text-[13px] text-[var(--text)]">
             {error}
           </div>
         )}
@@ -383,7 +409,7 @@ export default function UnifiedChat() {
           <div className="mb-2 flex justify-end">
             <button
               onClick={stopResponse}
-              className="rounded-full bg-[var(--surface-raised)] px-3 py-1.5 font-mono text-[11px] text-[var(--text)]"
+              className="tap-feedback rounded-full bg-[var(--surface-raised)] px-3 py-1.5 font-mono text-[11px] text-[var(--text)]"
             >
               ■ cevabı durdur
             </button>
@@ -391,7 +417,7 @@ export default function UnifiedChat() {
         )}
 
         {pendingImage && (
-          <div className="mb-2 flex items-center gap-2 rounded-xl bg-[var(--surface-raised)] px-2.5 py-2">
+          <div className="rise-in mb-2 flex items-center gap-2 rounded-xl border border-[var(--border-soft)] bg-[var(--surface-raised)] px-2.5 py-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={pendingImage}
@@ -404,18 +430,18 @@ export default function UnifiedChat() {
             <button
               onClick={() => setPendingImage(null)}
               aria-label="Fotoğrafı kaldır"
-              className="ml-auto flex h-7 w-7 items-center justify-center rounded-full text-[var(--coral)] transition-colors hover:bg-[var(--coral-dim)]"
+              className="tap-feedback ml-auto flex h-7 w-7 items-center justify-center rounded-full text-[var(--coral)] hover:bg-[var(--coral-dim)]"
             >
               ✕
             </button>
           </div>
         )}
 
-        <div className="flex items-end gap-2 rounded-[26px] border border-[var(--border)] bg-[var(--surface)] p-1.5 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.6)]">
+        <div className="flex items-end gap-2 rounded-[26px] border border-[var(--border)] bg-[var(--surface-glass)] p-1.5 shadow-[0_8px_28px_-10px_rgba(0,0,0,0.65)] backdrop-blur-md transition-shadow focus-within:border-[var(--violet)]/50 focus-within:shadow-[0_0_0_3px_var(--violet-dim)]">
           <button
             onClick={() => fileRef.current?.click()}
             aria-label="Fotoğraf ekle"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg text-[var(--text-dim)] transition-colors hover:bg-[var(--surface-raised)] hover:text-[var(--text)]"
+            className="tap-feedback flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg text-[var(--text-dim)] hover:bg-[var(--surface-raised)] hover:text-[var(--text)]"
           >
             📎
           </button>
@@ -427,6 +453,7 @@ export default function UnifiedChat() {
             onChange={(e) => onFile(e.target.files?.[0])}
           />
           <textarea
+            ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
@@ -443,7 +470,7 @@ export default function UnifiedChat() {
             <button
               onClick={toggleListening}
               aria-label={listening ? "Dinlemeyi durdur" : "Mikrofonla konuş"}
-              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-base text-white transition-colors ${
+              className={`tap-feedback flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-base text-white ${
                 listening
                   ? "mic-recording bg-[var(--coral)]"
                   : "bg-[var(--surface-raised)] text-[var(--text-dim)] hover:text-[var(--text)]"
@@ -456,7 +483,7 @@ export default function UnifiedChat() {
             onClick={() => send(input)}
             disabled={busy || !input.trim()}
             aria-label="Gönder"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--violet)] text-lg font-semibold text-white transition-opacity disabled:opacity-30"
+            className="tap-feedback flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[var(--violet-bright)] to-[var(--violet-deep)] text-lg font-semibold text-white shadow-[0_2px_10px_-2px_rgba(130,102,255,0.6)] disabled:from-[var(--surface-raised)] disabled:to-[var(--surface-raised)] disabled:text-[var(--text-dim)] disabled:shadow-none"
           >
             ↑
           </button>
